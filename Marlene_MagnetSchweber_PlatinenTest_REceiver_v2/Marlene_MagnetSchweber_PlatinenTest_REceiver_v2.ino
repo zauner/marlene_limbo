@@ -1,9 +1,10 @@
 #include <Stepper.h>
 #include <SoftwareSerial.h>
+#include <EEPROM.h>
 
 #include <DMXSerial.h>
 
-#define SLAVE_ID 1
+#define SLAVE_ID 4
 
 #define NO_EASE 0
 #define EASE_OUT 1
@@ -36,6 +37,8 @@ int Button2 = A5;
 int p = 0;
 unsigned long t = 0;
 int df = 1000/FPS;
+
+int tuneSteps = 0;
 
 SoftwareSerial mySerial = SoftwareSerial(9,10);
 
@@ -71,6 +74,11 @@ void setup()
   mySerial.begin(9600);
   mySerial.println("Hello I am a Receiver.");
 
+  byte storedTuneSteps = EEPROM.read(0);
+  if (storedTuneSteps != 255)
+    tuneSteps = storedTuneSteps - 128;
+  mySerial.println("Read Tune Steps from EEPROM:");
+  mySerial.println(tuneSteps);
 }
 
 int stepdelay = 0;
@@ -88,6 +96,11 @@ void loop()
         stepper(1);
         delay(10);
       }
+      tuneSteps--;
+      EEPROM.write(0, tuneSteps+128);
+      mySerial.println("SAVED TUNE STEPS");
+      mySerial.println(tuneSteps);
+      delay(100);
     }
     
     if(analogRead(Button2) > 500){
@@ -96,6 +109,11 @@ void loop()
         stepper(1);
         delay(10);
       }
+      tuneSteps++;
+      EEPROM.write(0, tuneSteps+128);
+      mySerial.println("SAVED TUNE STEPS");
+      mySerial.println(tuneSteps);
+      delay(100);
     }
 
     if(DMXSerial.dataUpdated()){
@@ -109,6 +127,17 @@ void loop()
   else if (state==STATE_CALIBRATE) {
     Direction = true;
     if (digitalRead(SENSOR_PIN)==LOW || analogRead(Button1)>500) {
+      // Replay manual tune steps
+      if (tuneSteps>0)
+        Direction = false;
+      else
+        Direction = true;
+      for (int i=0; i<abs(tuneSteps)*5; i++) {
+        stepper(1);
+        delay(10);
+      }
+
+      Direction = true;
       p = 0;
       state = STATE_TUNE;
     }
@@ -162,22 +191,10 @@ void loop()
         // CHECK: needs delay?
         return;
       }
-      /*if (df / abs(deltaPos) < 2)
-        delay(2);
-      else*/
       if (deltaPos!=0)
         stepdelay = df / abs(deltaPos);
       else
         stepdelay = 1;
-      /*if (stepdelay<2)
-        delay(2);
-      else if (stepdelay>10) {
-        delay(10);
-        return;
-      }
-      else
-        delay(df / abs(deltaPos));
-      */
     }
     else {
       currAnim.active = false;
