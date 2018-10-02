@@ -1,0 +1,27 @@
+<!DOCTYPE PATCH  SYSTEM "http://vvvv.org/versions/vvvv45beta28.1.dtd" >
+  <PATCH>
+  <BOUNDS type="Window" width="7500" height="7500">
+  </BOUNDS>
+  <NODE id="1" nodename="IOBox (Node)" systemname="IOBox (Node)" componentmode="InABox">
+  <BOUNDS type="Box" left="3960" top="480" width="100" height="100">
+  </BOUNDS>
+  <PIN pinname="Input Node" visible="1">
+  </PIN>
+  <PIN pinname="Descriptive Name" visible="0" values="|Transforms|">
+  </PIN>
+  </NODE>
+  <NODE id="2" nodename="GetSlice (Node)" systemname="GetSlice (Node)" componentmode="Hidden">
+  <BOUNDS type="Node" left="1515" top="2205" width="100" height="100">
+  </BOUNDS>
+  <PIN pinname="Input" visible="1">
+  </PIN>
+  <PIN pinname="BinSize" visible="1">
+  </PIN>
+  <PIN pinname="Index" visible="1">
+  </PIN>
+  <PIN pinname="Descriptive Name" visible="0" values="||">
+  </PIN>
+  </NODE>
+  <LINK srcnodeid="1" srcpinname="Output Node" dstnodeid="2" dstpinname="Input">
+  </LINK>
+  </PATCH>

@@ -4,7 +4,7 @@
 
 #include <DMXSerial.h>
 
-#define SLAVE_ID 4
+#define SLAVE_ID 8
 
 #define NO_EASE 0
 #define EASE_OUT 1

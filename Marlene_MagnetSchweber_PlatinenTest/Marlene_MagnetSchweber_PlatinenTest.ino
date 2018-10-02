@@ -50,7 +50,7 @@ void setup()
   pinMode(10, OUTPUT);
   mySerial.begin(9600);
   mySerial.println("Hello");
-  // delay(1000);
+  delay(1000);
 
 }
 
