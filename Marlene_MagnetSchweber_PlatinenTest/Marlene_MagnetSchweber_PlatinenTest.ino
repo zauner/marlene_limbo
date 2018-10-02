@@ -27,7 +27,7 @@ unsigned long last_time;
 int steps_left = 4095;
 long time;
 
-short state = STATE_CALIBRATING;
+short state = STATE_TUNE;
 
 int Button1 = A5;
 int Button2 = A4;
@@ -78,6 +78,12 @@ void loop()
     }
   }
   else if (state == STATE_PLAY) {
+
+    if(analogRead(Button2) > 500) {
+      DMXSerial.write(253, 100);
+      state = STATE_TUNE;
+      delay(1000);
+    }
     
     if ((millis() - transitionStart)>1000) {
       DMXSerial.write(254, 0);
