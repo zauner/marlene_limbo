@@ -113,6 +113,10 @@ void loop()
     for (int i=0; i<sizeof(anim[keyframe].pos)/sizeof(int); i++) {
       float mappedPos = (float)anim[keyframe].pos[i] / 4096.0 * 256.0;
       int subPrecisionPos = (mappedPos - floor(mappedPos))*100;
+      if (mappedPos<1) {
+        mappedPos = 1;
+        subPrecisionPos = 0;
+      }
       DMXSerial.write(i * addrOffset + 3, anim[keyframe].ease);
       DMXSerial.write(i * addrOffset + 4, (int)(anim[keyframe].dt/100.0));
       DMXSerial.write(i * addrOffset + 1, floor(mappedPos));
