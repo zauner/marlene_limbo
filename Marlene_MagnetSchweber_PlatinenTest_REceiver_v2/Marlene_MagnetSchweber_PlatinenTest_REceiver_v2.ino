@@ -4,7 +4,7 @@
 
 #include <DMXSerial.h>
 
-#define SLAVE_ID 8
+#define SLAVE_ID 0
 
 #define NO_EASE 0
 #define EASE_OUT 1
@@ -14,7 +14,7 @@
 #define STATE_CALIBRATE 1
 #define STATE_PLAY 2
 
-#define ADDR_OFFSET 5
+#define ADDR_OFFSET 6
 
 #define FPS 40
 
@@ -37,6 +37,8 @@ int Button2 = A5;
 int p = 0;
 unsigned long t = 0;
 int df = 1000/FPS;
+
+int currentKeyframe = 0;
 
 int tuneSteps = 0;
 
@@ -74,11 +76,17 @@ void setup()
   mySerial.begin(9600);
   mySerial.println("Hello I am a Receiver.");
 
-  byte storedTuneSteps = EEPROM.read(0);
-  if (storedTuneSteps != 255)
-    tuneSteps = storedTuneSteps - 128;
-  mySerial.println("Read Tune Steps from EEPROM:");
-  mySerial.println(tuneSteps);
+  unsigned int storedP = readPos();
+  if (storedP != -1)
+    p = storedP;
+  mySerial.println("Read Position from EEPROM:");
+  mySerial.println(p);
+
+  createAnimation(
+    0,
+    15000,
+    0
+  );
 }
 
 int stepdelay = 0;
@@ -89,17 +97,17 @@ void loop()
 
   t = millis();
 
-  if (state==STATE_TUNE) {
+  if (state==STATE_TUNE || !currAnim.active) {
     if(analogRead(Button1) > 500){
       Direction = true;
       for (int i=0; i<5; i++) {
         stepper(1);
         delay(10);
       }
-      tuneSteps--;
-      EEPROM.write(0, tuneSteps+128);
-      mySerial.println("SAVED TUNE STEPS");
-      mySerial.println(tuneSteps);
+      if (state==STATE_TUNE) {
+        p = 0;
+        storePos(0);
+      }
       delay(100);
     }
     
@@ -109,13 +117,15 @@ void loop()
         stepper(1);
         delay(10);
       }
-      tuneSteps++;
-      EEPROM.write(0, tuneSteps+128);
-      mySerial.println("SAVED TUNE STEPS");
-      mySerial.println(tuneSteps);
+      if (state==STATE_TUNE) {
+        p = 0;
+        storePos(0);
+      }
       delay(100);
     }
+  }
 
+  if (state==STATE_TUNE) {
     if(DMXSerial.dataUpdated()){
       DMXSerial.resetUpdated();
       if (DMXSerial.read(253)>10) {
@@ -124,8 +134,18 @@ void loop()
       }
     }
   }
-  else if (state==STATE_CALIBRATE) {
+  if (state==STATE_CALIBRATE) {
     Direction = true;
+    if (p>0) {
+      stepper(1);
+      p--;
+      delay(10);
+    }
+    else {
+      storePos(0);
+      state = STATE_TUNE;
+    }
+    /*Direction = true;
     if (digitalRead(SENSOR_PIN)==LOW || analogRead(Button1)>500) {
       // Replay manual tune steps
       if (tuneSteps>0)
@@ -144,7 +164,7 @@ void loop()
     else {
       stepper(1);
       delay(10);
-    }
+    }*/
   }
   else if (state==STATE_PLAY) {
 
@@ -153,17 +173,27 @@ void loop()
       int orig = DMXSerial.read(SLAVE_ID * ADDR_OFFSET + 1);
       int subOrig = DMXSerial.read(SLAVE_ID * ADDR_OFFSET + 2);
       int recEase = DMXSerial.read(SLAVE_ID * ADDR_OFFSET + 3);
-      int recTime = DMXSerial.read(SLAVE_ID * ADDR_OFFSET + 4)*100;
+      int recTime = DMXSerial.read(SLAVE_ID * ADDR_OFFSET + 4);
+      int checksum = DMXSerial.read(SLAVE_ID * ADDR_OFFSET + 5);
       int recPos = (int)((float)orig + (float)subOrig/100.0)/256.0 * 4096;
-      if (orig>0 && currAnim.targetPos!=recPos && DMXSerial.read(254)>10) {
-        if (recTime==0) {
-          //mySerial.println("Weird Packet. Ignoring ...");
+      //int recPos = orig * 256 + subOrig;
+      int oinko = DMXSerial.read(253);
+      
+      if (orig>0 && currAnim.targetPos!=recPos && oinko==100) {
+        if (recTime==0 || (checksum != (orig + subOrig + recTime) % 256)) {
+          mySerial.println("Weird Packet. Ignoring ...");
+          mySerial.println(checksum);
+          mySerial.println((orig + subOrig + recTime) % 256);
         }
         else {
+          //delay(50);
           mySerial.println("Got Something!");
+          mySerial.println(millis());
+          mySerial.println(recPos);
+          mySerial.println(recTime*100);
           createAnimation(
             recPos,
-            recTime,
+            recTime*100,
             recEase
           );
         }
@@ -185,10 +215,11 @@ void loop()
         p++;
       else
         p--;
-      if (abs(currAnim.targetPos-p)<3) {
+      if (abs(currAnim.targetPos-p)==0) {
         mySerial.println("and stop");
         currAnim.active = false;
         // CHECK: needs delay?
+        storePos(p);
         return;
       }
       if (deltaPos!=0)
@@ -318,4 +349,15 @@ void SetDirection() {
   if (Steps < 0) {
     Steps = 7;
   }
+}
+
+void storePos(int pos) {
+  EEPROM.write(0, (pos & (255 << 8)) >> 8);
+  EEPROM.write(1, pos & 255); 
+}
+
+unsigned int readPos() {
+  unsigned int part1 = EEPROM.read(0);
+  unsigned int part2 = EEPROM.read(1);
+  return part1 * 256 + part2;
 }

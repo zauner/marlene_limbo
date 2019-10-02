@@ -59,7 +59,7 @@ long transitionStart = -1;
 
 void loop()
 {
-  int addrOffset = 5;
+  int addrOffset = 6;
 
   if (state == STATE_CALIBRATING) {
     if (analogRead(Button1) > 500) {
@@ -86,7 +86,7 @@ void loop()
     }
     
     if ((millis() - transitionStart)>1000) {
-      DMXSerial.write(254, 0);
+      DMXSerial.write(253, 0);
     }
     if (transitionStart<0 || (millis() - transitionStart)>anim[keyframe].dt) {
       mySerial.println("Starting new because");
@@ -107,7 +107,28 @@ void loop()
         mySerial.println(anim[keyframe].pos[i]);
       }
       mySerial.println(anim[keyframe].dt);
-      DMXSerial.write(254, 100);
+
+      for (int i=0; i<sizeof(anim[keyframe].pos)/sizeof(int); i++) {
+        float mappedPos = (float)anim[keyframe].pos[i] / 4096.0 * 256.0;
+        int subPrecisionPos = (mappedPos - floor(mappedPos))*100;
+        if (mappedPos<1) {
+          mappedPos = 1;
+          subPrecisionPos = 0;
+        }
+        DMXSerial.write(i * addrOffset + 3, anim[keyframe].ease);
+        DMXSerial.write(i * addrOffset + 4, (int)(anim[keyframe].dt/100.0));
+        DMXSerial.write(i * addrOffset + 1, floor(mappedPos));
+        DMXSerial.write(i * addrOffset + 2, subPrecisionPos);
+        int checksum = ((int)(anim[keyframe].dt/100.0) + (int)floor(mappedPos) + (int)subPrecisionPos) % 256;
+        DMXSerial.write(i * addrOffset + 5, checksum);
+        
+        /*DMXSerial.write(i * addrOffset + 3, anim[keyframe].ease);
+        DMXSerial.write(i * addrOffset + 4, (int)(anim[keyframe].dt/100.0));
+        DMXSerial.write(i * addrOffset + 1, (anim[keyframe].pos[i] & (255 << 8)) >> 8);
+        DMXSerial.write(i * addrOffset + 2, anim[keyframe].pos[i] & 255);
+        */
+      }
+      DMXSerial.write(253, 100);
       
     }
     for (int i=0; i<sizeof(anim[keyframe].pos)/sizeof(int); i++) {
@@ -121,6 +142,14 @@ void loop()
       DMXSerial.write(i * addrOffset + 4, (int)(anim[keyframe].dt/100.0));
       DMXSerial.write(i * addrOffset + 1, floor(mappedPos));
       DMXSerial.write(i * addrOffset + 2, subPrecisionPos);
+      int checksum = ((int)(anim[keyframe].dt/100.0) + (int)floor(mappedPos) + (int)subPrecisionPos) % 256;
+      DMXSerial.write(i * addrOffset + 5, checksum);
+      
+      /*DMXSerial.write(i * addrOffset + 3, anim[keyframe].ease);
+      DMXSerial.write(i * addrOffset + 4, (int)(anim[keyframe].dt/100.0));
+      DMXSerial.write(i * addrOffset + 1, (anim[keyframe].pos[i] & (255 << 8)) >> 8);
+      DMXSerial.write(i * addrOffset + 2, anim[keyframe].pos[i] & 255);
+      */
     }
   }
   
